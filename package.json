@@ -1,0 +1,26 @@
+{
+  "name": "der-api",
+  "version": "1.0.0",
+  "description": "API for Democracia en Red Foundation website",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DemocraciaEnRed/api.democraciaenred.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DemocraciaEnRed/api.democraciaenred/issues"
+  },
+  "homepage": "https://github.com/DemocraciaEnRed/api.democraciaenred#readme",
+  "dependencies": {
+    "dotenv": "^4.0.0",
+    "express": "^4.16.2",
+    "moment": "^2.19.3",
+    "request": "^2.83.0"
+  }
+}
