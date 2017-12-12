@@ -1,7 +1,7 @@
 const request = require('request')
 const moment = require('moment')
 
-exports.getPublicaciones = function getPublicaciones (req, res) {
+function getPublicaciones (req, res) {
   getMedium('serverless')
     .then(mediumResponse => {
       res.json(parsePublicaciones(mediumResponse, req.query.lang))
@@ -43,3 +43,5 @@ function parsePublicaciones (mediumResponse, lang) {
     image: `https://cdn-images-1.medium.com/fit/t/370/300/${p.virtuals.previewImage.imageId}`
   }))
 }
+
+module.exports = { getPublicaciones }
