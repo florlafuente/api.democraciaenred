@@ -4,7 +4,10 @@ const express = require('express')
 const bodyParser = require('body-parser')
 
 const { getPublicaciones } = require('./medium')
-const { mandarMailConfirmacion } = require('./mailgun')
+const {
+  mandarConfirmacion,
+  agregarEmail
+} = require('./mailgun')
 
 const app = express()
 
@@ -18,7 +21,9 @@ app.all('/*', (req, res, next) => {
 
 app.get('/publicaciones', getPublicaciones)
 
-app.post('/subscripcion', mandarMailConfirmacion)
+app.post('/validar-subscripcion', mandarConfirmacion)
+
+app.get('/subscripcion', agregarEmail)
 
 var server = app.listen(process.env.PORT || 3000, function() {
   console.log('server listening on port ' + server.address().port)

@@ -13,17 +13,16 @@ function getPublicaciones (req, res) {
 }
 
 function getMedium (tag) {
-  var url = `https://medium.com/statuscode/tagged/${tag}?format=json&limit=4`
   return new Promise(function (resolve, reject) {
     request({
-      url: url,
+      url: `https://medium.com/statuscode/tagged/${tag}?format=json&limit=4`,
       json: true
     }, function (error, response, body) {
       if (!error && response.statusCode === 200) {
-      jsonBody = JSON.parse(body.replace('])}while(1);</x>', ''))
+        let jsonBody = JSON.parse(body.replace('])}while(1);</x>', ''))
         resolve(jsonBody)
       } else {
-        reject(error || response)
+        reject(error || response.statusCode)
       }
     })
   })
