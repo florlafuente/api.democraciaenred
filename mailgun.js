@@ -4,11 +4,20 @@ const jwt = require('jsonwebtoken')
 const cache = require('memory-cache')
 const emailTemplate = require('./confirm-email-html')
 
+const {
+  MAILGUN_DOMAIN,
+  MAILGUN_API_KEY,
+  MAILGUN_PUBLIC_KEY,
+  JWT_SECRET,
+  HOST,
+  SITE
+} = process.env
+
 const mg = mailgun.client({
-  domain: process.env.MAILGUN_DOMAIN,
+  domain: MAILGUN_DOMAIN,
   username: 'api',
-  key: process.env.MAILGUN_API_KEY,
-  public_key: process.env.MAILGUN_PUBLIC_KEY
+  key: MAILGUN_API_KEY,
+  public_key: MAILGUN_PUBLIC_KEY
 })
 
 function mandarConfirmacion (req, res) {
@@ -18,14 +27,14 @@ function mandarConfirmacion (req, res) {
       return notInList(validation.address)
     })
     .then(mail => {
-      const token = jwt.sign({ mail }, process.env.JWT_SECRET, { expiresIn: 60 * 60 * 24 * 2 })
+      const token = jwt.sign({ mail }, JWT_SECRET, { expiresIn: 60 * 60 * 24 * 2 })
       cache.put(mail, token, 1000 * 60 * 60 * 24 * 2)
 
-      return mg.messages.create(process.env.MAILGUN_DOMAIN, {
+      return mg.messages.create(MAILGUN_DOMAIN, {
           from: "Democracia en Red <no-reply@democraciaenred.org>",
           to: [ mail ],
           subject: "Confirma tu email",
-          text: `Valida tu mail ingresando a ${process.env.HOST}/validar-email?token=${token}`,
+          text: `Valida tu mail ingresando a ${HOST}/validar-email?token=${token}`,
           html: emailTemplate(token)
         })
       })
@@ -61,12 +70,12 @@ function notInList (mail) {
         }
         reject(error || response.statusCode)
       }
-    }).auth('api', process.env.MAILGUN_API_KEY, false)
+    }).auth('api', MAILGUN_API_KEY, false)
   })
 }
 
 function agregarEmail (req, res) {
-  jwt.verify(req.query.token, process.env.JWT_SECRET, function(err, decoded) {
+  jwt.verify(req.query.token, JWT_SECRET, function(err, decoded) {
     if (err) return res.status(400).end()
     
     const savedToken = cache.get(decoded.mail)
@@ -79,15 +88,41 @@ function agregarEmail (req, res) {
     }, function (error, response, body) {
       if (!error && response.statusCode === 200) {
         cache.del(decoded.mail)
-        res.redirect(301, `${process.env.SITE}?subcripto=true`)
+        res.redirect(301, `${SITE}?subcripto=true`)
       } else {
-        res.redirect(301, `${process.env.SITE}?subcripto=false`)
+        res.redirect(301, `${SITE}?subcripto=false`)
       }
-    }).auth('api', process.env.MAILGUN_API_KEY, false)
+    }).auth('api', MAILGUN_API_KEY, false)
+  })
+}
+
+function mailSpeak (req, res) {
+  const content = 
+`¿Cual es tu nombre?\n
+${req.body.name}\n
+¿Cual es tu email?:\n
+${req.body.email}\n
+¿Donde nos conociste?:\n
+${req.body.reference}\n
+¿Qué nos querés decir?:\n
+${req.body.comments}\n`
+
+  mg.messages.create(MAILGUN_DOMAIN, {
+    from: 'no-reply@democraciaenred.org',
+    to: 'speak@democracyos.io',
+    subject: 'Contacto democraciaenred.org',
+    text: content
+  })
+  .then(msg => {
+    res.status(200).end()
+  })
+  .catch(err => {
+    res.status(400).end()
   })
 }
 
 module.exports = {
   mandarConfirmacion,
-  agregarEmail
+  agregarEmail,
+  mailSpeak
 }
