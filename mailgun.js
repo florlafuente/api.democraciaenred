@@ -79,9 +79,9 @@ function agregarEmail (req, res) {
     }, function (error, response, body) {
       if (!error && response.statusCode === 200) {
         cache.del(decoded.mail)
-        res.status(200).end()
+        res.redirect(301, `${process.env.SITE}?subcripto=true`)
       } else {
-        res.status(400).end()
+        res.redirect(301, `${process.env.SITE}?subcripto=false`)
       }
     }).auth('api', process.env.MAILGUN_API_KEY, false)
   })
