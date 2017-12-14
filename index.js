@@ -11,13 +11,14 @@ const {
 
 const app = express()
 
-app.use(bodyParser.json())
-
 app.all('/*', (req, res, next) => {
   res.header("Access-Control-Allow-Origin", process.env.ALLOW_ORIGIN)
-  res.header('Access-Control-Allow-Methods', 'GET,POST')
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type')
   next()
 })
+
+app.use(bodyParser.json())
 
 app.get('/publicaciones', getPublicaciones)
 
