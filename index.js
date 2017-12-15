@@ -9,11 +9,11 @@ const {
   mailContacto,
   mailTrabajo,
   mailTrabajoError
-} = require('./mailgun')
+} = require('./lib/mailgun')
 
 const {
   getPublicaciones
-} = require('./medium')
+} = require('./lib/medium')
 
 const {
   ALLOW_ORIGIN
