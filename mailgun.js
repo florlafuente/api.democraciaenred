@@ -1,8 +1,11 @@
-const mailgun = require('mailgun.js')
+const mailgun = require('mailgun-js')
 const request = require('request')
 const jwt = require('jsonwebtoken')
 const cache = require('memory-cache')
-const emailTemplate = require('./confirm-email-html')
+const path = require('path')
+const confirmarTemplate = require('./confirmar-email')
+const contactoTemplate = require('./contacto-email')
+const trabajoTemplate = require('./trabajo-email')
 
 const {
   MAILGUN_DOMAIN,
@@ -13,116 +16,129 @@ const {
   SITE
 } = process.env
 
-const mg = mailgun.client({
+const mg = mailgun({
   domain: MAILGUN_DOMAIN,
-  username: 'api',
-  key: MAILGUN_API_KEY,
-  public_key: MAILGUN_PUBLIC_KEY
+  apiKey: MAILGUN_API_KEY,
+  publicApiKey: MAILGUN_PUBLIC_KEY
 })
 
-function mandarConfirmacion (req, res) {
-  mg.validate.get(req.body.mail)
-    .then(validation => {
-      if (!validation.is_valid) return Promise.reject('invalid-email')
-      return notInList(validation.address)
+function mandarConfirmacion (req, res, next) {
+  (new Promise(function (resolve, reject) {
+    mg.validate(req.body.email, (error, validation) => {
+      if (error) return reject(error)
+      if (!validation.is_valid) return reject('invalid-email')
+      resolve(validation.address)
     })
-    .then(mail => {
+  }))
+  .then(mail => estaSubscripto(mail))
+  .then(mail => {
       const token = jwt.sign({ mail }, JWT_SECRET, { expiresIn: 60 * 60 * 24 * 2 })
       cache.put(mail, token, 1000 * 60 * 60 * 24 * 2)
-
-      return mg.messages.create(MAILGUN_DOMAIN, {
-          from: "Democracia en Red <no-reply@democraciaenred.org>",
-          to: [ mail ],
-          subject: "Confirma tu email",
-          text: `Valida tu mail ingresando a ${HOST}/validar-email?token=${token}`,
-          html: emailTemplate(token)
+      return new Promise(function (resolve, reject) {
+        mg.messages()
+          .send({
+            from: "Democracia en Red <no-reply@democraciaenred.org>",
+            to: [ mail ],
+            subject: "Confirma tu email",
+            text: `Valida tu mail ingresando a ${HOST}/validar-email?token=${token}`,
+            html: confirmarTemplate(token)
+          }, function (error, body) {
+            if (error) return reject(error)
+            resolve(body)
+          })
         })
       })
     .then(msg => {
       res.status(200).end()
     })
-    .catch(err => {
-      let error = 'internal-error'
-      switch (err) {
-        case 'invalid-email':
-          error = err
-          break
-        case 'is-in-list':
-          error = err
-          break
-      }
+    .catch(error => {
+      if (error !== 'invalid-email' && error !== 'is-in-list') return next(error)
 
-      res.status(error === 'internal-error' ? 500 : 400).json({ error })
+      res.status(400).json({ error })
     })
 }
 
-function notInList (mail) {
+function estaSubscripto (mail) {
   return new Promise(function (resolve, reject) {
-    request({
-      url: `https://api.mailgun.net/v3/lists/test-encuesta@mg.octa.digital/members/${mail}`,
-      json: true
-    }, function (error, response, body) {
-      if (!error && response.statusCode === 200) {
-        reject('is-in-list')
-      } else {
-        if (response.statusCode === 404) {
-          return resolve(mail)
-        }
-        reject(error || response.statusCode)
-      }
-    }).auth('api', MAILGUN_API_KEY, false)
+    mg.lists('test-encuesta@mg.octa.digital').members(mail)
+      .info(function (error, body) {
+        if (!error) reject('is-in-list')
+        if (error && error.statusCode === 404) return resolve(mail)
+        reject(error)
+      })
   })
 }
 
-function agregarEmail (req, res) {
+function agregarEmail (req, res, next) {
   jwt.verify(req.query.token, JWT_SECRET, function(err, decoded) {
-    if (err) return res.status(400).end()
-    
-    const savedToken = cache.get(decoded.mail)
-    if (!savedToken || savedToken !== req.query.token) return res.status(400).end()
+    if (err) return res.redirect(301, `${SITE}?subcripto=false`)
 
-    request({
-      url: `https://api.mailgun.net/v3/lists/test-encuesta@mg.octa.digital/members`,
-      method: 'POST',
-      form: { address: decoded.mail }
-    }, function (error, response, body) {
-      if (!error && response.statusCode === 200) {
+    const savedToken = cache.get(decoded.mail)
+    if (!savedToken || savedToken !== req.query.token) return res.redirect(301, `${SITE}?subcripto=false`)
+
+    mg.lists('test-encuesta@mg.octa.digital').members()
+      .create({ address: decoded.mail }, function (error, body) {
+        if (error) return next(error)
         cache.del(decoded.mail)
         res.redirect(301, `${SITE}?subcripto=true`)
-      } else {
-        res.redirect(301, `${SITE}?subcripto=false`)
-      }
-    }).auth('api', MAILGUN_API_KEY, false)
+      })
   })
 }
 
-function mailSpeak (req, res) {
-  const content = 
-`¿Cual es tu nombre?\n
-${req.body.name}\n
-¿Cual es tu email?:\n
-${req.body.email}\n
-¿Donde nos conociste?:\n
-${req.body.reference}\n
-¿Qué nos querés decir?:\n
-${req.body.comments}\n`
+function mailContacto (req, res, next) {
+  mg.validate(req.body.email, (error, validation) => {
+    if (error) return next(error)
+    if (!validation.is_valid) return res.status(400).json({ error: 'invalid-email' })
 
-  mg.messages.create(MAILGUN_DOMAIN, {
-    from: 'no-reply@democraciaenred.org',
-    to: 'speak@democracyos.io',
-    subject: 'Contacto democraciaenred.org',
-    text: content
+    mg.messages()
+      .send({
+        from: 'no-reply@democraciaenred.org',
+        to: 'speak@democracyos.io',
+        subject: 'Contacto democraciaenred.org',
+        text: contactoTemplate(req.body)
+      }, function (error, body) {
+        if (error) return next(error)
+        res.status(200).end()
+      })
   })
-  .then(msg => {
-    res.status(200).end()
-  })
-  .catch(err => {
-    res.status(400).end()
-  })
+}
+
+function mailTrabajo (req, res, next) {
+  mg.validate(req.body.email, (error, validation) => {
+    if (error) return next(error)
+
+    const cv = new mg.Attachment({
+      data: req.file.buffer,
+      filename: `CV${path.extname(req.file.originalname)}`,
+      contentType: req.file.mimetype,
+      knownLenght: req.file.size
+    })
+
+    mg.messages()
+      .send({
+        from: 'no-reply@democraciaenred.org',
+        to: 'trabajos@mg.octa.digital',
+        subject: 'Trabajos democraciaenred.org',
+        attachment: cv,
+        text: trabajoTemplate(req.body)
+      }, function (error, body) {
+        if (error) return next(error)
+        res.status(200).end()
+      })
+    })
+}
+
+function mailTrabajoError (err, req, res, next) {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'file-too-big' })
+  }
+  next(err)
 }
 
 module.exports = {
   mandarConfirmacion,
   agregarEmail,
-  mailSpeak
+  mailContacto,
+  mailTrabajo,
+  mailTrabajoError
 }
