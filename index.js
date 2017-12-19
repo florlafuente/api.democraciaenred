@@ -2,6 +2,7 @@ require('dotenv').config()
 
 const express = require('express')
 const multer = require('multer')
+const cors = require('cors')
 
 const {
   mandarConfirmacion,
@@ -23,14 +24,7 @@ const app = express()
 const upload = multer({ limits: { fileSize: 5000000, files: 1 } }) // 1 file 5MB max
 
 app.use(express.json())
-
-
-app.all('/*', (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", ALLOW_ORIGIN)
-  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-  res.header('Access-Control-Allow-Headers', "Origin, X-Requested-With, Content-Type, Accept")
-  next()
-})
+app.use(cors())
 
 app.get('/publicaciones', getPublicaciones)
 

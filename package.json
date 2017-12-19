@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/DemocraciaEnRed/api.democraciaenred#readme",
   "dependencies": {
+    "cors": "^2.8.4",
     "dotenv": "^4.0.0",
     "express": "^4.16.2",
     "jsonwebtoken": "^8.1.0",
